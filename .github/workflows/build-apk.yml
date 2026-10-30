@@ -16,42 +16,37 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
-      - name: 下载仓库内容
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: 检查并解压安卓工程
-        shell: bash
+      - name: Unpack Android project
         run: |
-          test -f PiaoDianHelper_V1_BuildReady.zip || { echo '请先把 PiaoDianHelper_V1_BuildReady.zip 上传至仓库根目录'; exit 1; }
+          test -f PiaoDianHelper_V1_BuildReady.zip
           mkdir -p build-input
           unzip -q PiaoDianHelper_V1_BuildReady.zip -d build-input
           test -f build-input/PiaoDianHelper_V1/settings.gradle
-
-      - name: 设置 Java 17
+      - name: Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: 设置 Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: 安装 Android API 35
-        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
-
-      - name: 设置 Gradle 8.11.1
+      - name: Android SDK packages
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-
-      - name: 编译 debug APK
+      - name: Build APK
         working-directory: build-input/PiaoDianHelper_V1
         run: gradle --no-daemon --stacktrace :app:assembleDebug
-
-      - name: 创建校验值
+      - name: Checksum
         run: sha256sum build-input/PiaoDianHelper_V1/app/build/outputs/apk/debug/app-debug.apk > build-input/PiaoDianHelper_V1/app/build/outputs/apk/debug/SHA256.txt
-
-      - name: 上传 APK 安装包
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PiaoDianHelper-V1-APK
